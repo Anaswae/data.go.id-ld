@@ -34,14 +34,17 @@ DataGoIdDriver.prototype.setOptions = function(options) {
   if (!self.options.ignoredFields) {
     // Ignore these fields, because we're using wilayah URIs
     // TODO have a flag to disable ignoring these fields
-    self.options.ignoredFields = [ 'kode_provinsi', 'nama_provinsi', 'kode_kabkota', 'nama_kabkota', 'tahun' ];
+    self.options.ignoredFields =
+      [ 'kode_provinsi', 'nama_provinsi', 'kode_kabkota', 'koordinat_provinsi',
+        'koordinat_kabkota', 'nama_kabkota', 'tahun' ];
   }
 
   if (!self.options.ckanURL) {
     self.options.ckanURL = 'http://data.ukp.go.id/';
   }
   if (!self.options.base) {
-    self.options.base = self.options.ckanURL + 'dataset/' + self.options.datasetId + '#';
+    self.options.base = self.options.ckanURL + 'dataset/' +
+                        self.options.datasetId + '#';
   }
   if (!self.options.dsd) {
     self.options.dsd = self.options.base + 'dsd';
@@ -50,7 +53,7 @@ DataGoIdDriver.prototype.setOptions = function(options) {
       self.generateDSD(self.options);
     }
   }
-}
+};
 
 DataGoIdDriver.prototype.fetchFromCkan = function(callback) {
   var self = this;
@@ -59,23 +62,26 @@ DataGoIdDriver.prototype.fetchFromCkan = function(callback) {
 
   var client = new ckan.Client(self.options.ckanURL);
 
-  client.action('package_show', { id: self.options.datasetId }, function(err, data) {
-    if (err) {
-      callback(err);
-    }
-    else {
-      var resources = data.result.resources;
-      // The CSV we want should be at index 0
-      var firstResource = resources[0];
+  console.log(self.options);
 
-      self.options.csvUrl = firstResource.url;
-      self.options.datasetMeta = data.result;
-      self.options.org = data.result.organization;
+  client.action('package_show', { id: self.options.datasetId },
+    function(err, data) {
+      if (err) {
+        callback(err);
+      }
+      else {
+        var resources = data.result.resources;
+        // The CSV we want should be at index 0
+        var firstResource = resources[0];
 
-      callback();
-    }
-  });
-}
+        self.options.csvUrl = firstResource.url;
+        self.options.datasetMeta = data.result;
+        self.options.org = data.result.organization;
+
+        callback();
+      }
+    });
+};
 
 DataGoIdDriver.prototype.getCsvString = function(callback) {
   var self = this;
@@ -90,8 +96,8 @@ DataGoIdDriver.prototype.getCsvString = function(callback) {
       self.options.csvString = body;
       callback();
     }
-  })
-}
+  });
+};
 
 DataGoIdDriver.prototype.makeRowObject = function(rowArray, headerArray) {
   var rowObject = {};
@@ -101,7 +107,7 @@ DataGoIdDriver.prototype.makeRowObject = function(rowArray, headerArray) {
   });
 
   return rowObject;
-}
+};
 
 DataGoIdDriver.prototype.getRowObjects = function(callback) {
   var self = this;
@@ -120,8 +126,8 @@ DataGoIdDriver.prototype.getRowObjects = function(callback) {
     });
 
     callback();
-  })
-}
+  });
+};
 
 DataGoIdDriver.prototype.generateDSD = function() {
   var self = this;
@@ -129,7 +135,8 @@ DataGoIdDriver.prototype.generateDSD = function() {
   var base = self.options.base;
   var triples = self.options.triples;
 
-  self.addTriple(base + 'dsd', rdfNS + 'type', qbNS + 'DataStructureDefinition');
+  self.addTriple(base + 'dsd', rdfNS + 'type',
+                 qbNS + 'DataStructureDefinition');
   self.addTriple('_:dsd-refArea', qbNS + 'dimension', ontNS + 'refArea');
   self.addTriple('_:dsd-refArea', qbNS + 'order', '"1"');
 
@@ -145,7 +152,7 @@ DataGoIdDriver.prototype.generateDSD = function() {
       self.addTriple(base + header, rdfNS + 'type', qbNS + 'MeasureProperty');
     }
   });
-}
+};
 
 DataGoIdDriver.prototype.initDataset = function(callback) {
   var self = this;
@@ -156,12 +163,14 @@ DataGoIdDriver.prototype.initDataset = function(callback) {
   var triples = self.options.triples;
 
   self.addTriple(base, rdfNS + 'type', qbNS + 'DataSet');
-  self.addTriple(base, rdfsNS + 'label', '"' + self.options.datasetMeta.title + '"');
-  self.addTriple(base, rdfsNS + 'comment', '"' + self.options.datasetMeta.notes + '"');
+  self.addTriple(base, rdfsNS + 'label',
+                 '"' + self.options.datasetMeta.title + '"');
+  self.addTriple(base, rdfsNS + 'comment',
+                 '"' + self.options.datasetMeta.notes + '"');
   self.addTriple(base, qbNS + 'structure', self.options.dsd);
 
   callback();
-}
+};
 
 DataGoIdDriver.prototype.addObservation = function(rowObject, idx) {
   var self = this;
@@ -169,33 +178,37 @@ DataGoIdDriver.prototype.addObservation = function(rowObject, idx) {
   var base = self.options.base;
   var triples = self.options.triples;
 
+  var observationURI;
   if (self.options.generateObservationURI) {
-    var observationURI = self.options.generateObservationURI(rowObject, idx);
+    observationURI = self.options.generateObservationURI(rowObject, idx);
   }
   else {
-    var observationURI = base + 'observation/' + idx;
+    observationURI = base + 'observation/' + idx;
   }
 
   self.addTriple(observationURI, rdfNS + 'type', qbNS + 'Observation');
   self.addTriple(observationURI, qbNS + 'dataSet', base);
-  self.addTriple(observationURI, ontNS + 'refArea', bpsNS + rowObject.kode_kabkota);
+  self.addTriple(observationURI, ontNS + 'refArea',
+                 bpsNS + rowObject.kode_kabkota);
 
   if (rowObject.tahun && self.options.ignoredFields.indexOf('tahun') !== -1) {
-    self.addTriple(observationURI, ontNS + 'refPeriod', '"' + rowObject.tahun + '"^^<' + xsdNS + 'gYear>');
+    self.addTriple(observationURI, ontNS + 'refPeriod',
+                   '"' + rowObject.tahun + '"^^<' + xsdNS + 'gYear>');
   }
 
   Object.keys(rowObject).forEach(function(key) {
     if (self.options.ignoredFields.indexOf(key) === -1) {
+      var value;
       if (self.options.transformValue) {
-        var value = self.options.transformValue(key, rowObject[key]);
+        value = self.options.transformValue(key, rowObject[key]);
       }
       else {
-        var value = '"' + rowObject[key] + '"';
+        value = '"' + rowObject[key] + '"';
       }
       self.addTriple(observationURI, base + key, value);
     }
   });
-}
+};
 
 DataGoIdDriver.prototype.addObservations = function(callback) {
   var self = this;
@@ -207,7 +220,7 @@ DataGoIdDriver.prototype.addObservations = function(callback) {
   });
 
   callback();
-}
+};
 
 DataGoIdDriver.prototype.fetch = function() {
   var self = this;
@@ -231,6 +244,6 @@ DataGoIdDriver.prototype.fetch = function() {
       self.finish();
     }
   });
-}
+};
 
 BmDriverBase.handleCLI({});
