@@ -4,21 +4,20 @@ var _s = require('underscore.string');
 var util = require('util');
 var ckan = require('ckan');
 var request = require('request');
-var logger = require('winston');
 var async = require('async');
 var _ = require('lodash');
 
 var BmDriverBase = require('benangmerah-driver-base');
 
-var rdfNS = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#';
-var rdfsNS = 'http://www.w3.org/2000/01/rdf-schema#';
-var owlNS = 'http://www.w3.org/2002/07/owl#';
-var xsdNS = 'http://www.w3.org/2001/XMLSchema#';
-var ontNS = 'http://benangmerah.net/ontology/';
-var placeNS = 'http://benangmerah.net/place/idn/';
-var bpsNS = 'http://benangmerah.net/place/idn/bps/';
-var geoNS = 'http://www.w3.org/2003/01/geo/wgs84_pos#';
-var qbNS = 'http://purl.org/linked-data/cube#';
+var RDF_NS = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#';
+var RDFS_NS = 'http://www.w3.org/2000/01/rdf-schema#';
+var OWL_NS = 'http://www.w3.org/2002/07/owl#';
+var XSD_NS = 'http://www.w3.org/2001/XMLSchema#';
+var BM_NS = 'http://benangmerah.net/ontology/';
+var PLACE_NS = 'http://benangmerah.net/place/idn/';
+var BPS_NS = 'http://benangmerah.net/place/idn/bps/';
+var GEO_NS = 'http://www.w3.org/2003/01/geo/wgs84_pos#';
+var QB_NS = 'http://purl.org/linked-data/cube#';
 
 function DataGoIdDriver() {}
 
@@ -48,21 +47,17 @@ DataGoIdDriver.prototype.setOptions = function(options) {
   }
   if (!self.options.dsd) {
     self.options.dsd = self.options.base + 'dsd';
-
-    if (self.options.generateDSD) {
-      self.generateDSD(self.options);
-    }
   }
+
+  self.info(self.options);
 };
 
 DataGoIdDriver.prototype.fetchFromCkan = function(callback) {
   var self = this;
 
-  logger.info('Fetching from CKAN...');
+  self.info('Fetching from CKAN...');
 
   var client = new ckan.Client(self.options.ckanURL);
-
-  console.log(self.options);
 
   client.action('package_show', { id: self.options.datasetId },
     function(err, data) {
@@ -74,9 +69,9 @@ DataGoIdDriver.prototype.fetchFromCkan = function(callback) {
         // The CSV we want should be at index 0
         var firstResource = resources[0];
 
-        self.options.csvUrl = firstResource.url;
-        self.options.datasetMeta = data.result;
-        self.options.org = data.result.organization;
+        self.csvUrl = firstResource.url;
+        self.datasetMeta = data.result;
+        self.org = data.result.organization;
 
         callback();
       }
@@ -86,14 +81,14 @@ DataGoIdDriver.prototype.fetchFromCkan = function(callback) {
 DataGoIdDriver.prototype.getCsvString = function(callback) {
   var self = this;
 
-  logger.info('Fetching CSV contents...');
+  self.info('Fetching CSV contents...');
 
-  request(self.options.csvUrl, function(err, response, body) {
+  request(self.csvUrl, function(err, response, body) {
     if (err) {
       callback(err);
     }
     else {
-      self.options.csvString = body;
+      self.csvString = body;
       callback();
     }
   });
@@ -112,62 +107,77 @@ DataGoIdDriver.prototype.makeRowObject = function(rowArray, headerArray) {
 DataGoIdDriver.prototype.getRowObjects = function(callback) {
   var self = this;
   
-  logger.info('Parsing CSV...');
+  self.info('Parsing CSV...');
 
   csv()
-  .from.string(self.options.csvString)
+  .from.string(self.csvString)
   .to.array(function(rows) {
-    self.options.headerArray = rows.shift();
-    self.options.rowObjects = [];
+    self.headerArray = rows.shift();
+    self.rowObjects = [];
 
     rows.forEach(function(row) {
-      var rowObject = self.makeRowObject(row, self.options.headerArray);
-      self.options.rowObjects.push(rowObject);
+      var rowObject = self.makeRowObject(row, self.headerArray);
+      self.rowObjects.push(rowObject);
     });
 
     callback();
   });
 };
 
-DataGoIdDriver.prototype.generateDSD = function() {
+DataGoIdDriver.prototype.generateDSD = function(callback) {
   var self = this;
-  
-  var base = self.options.base;
-  var triples = self.options.triples;
 
-  self.addTriple(base + 'dsd', rdfNS + 'type',
-                 qbNS + 'DataStructureDefinition');
-  self.addTriple('_:dsd-refArea', qbNS + 'dimension', ontNS + 'refArea');
-  self.addTriple('_:dsd-refArea', qbNS + 'order', '"1"');
+  if (!self.options.generateDSD) {
+    return callback();
+  }
+  
+  self.info('Generating data structure definition...');
+
+  var base = self.options.base;
+
+  self.addTriple(base + 'dsd', RDF_NS + 'type',
+                 QB_NS + 'DataStructureDefinition');
+  self.addTriple('_:dsd-refArea', QB_NS + 'dimension', BM_NS + 'refArea');
+  self.addTriple('_:dsd-refArea', QB_NS + 'order', '"1"');
 
   var order = 2;
 
-  self.options.headerArray.forEach(function(header) {
+  self.headerArray.forEach(function(header) {
     if (self.options.ignoredFields.indexOf(header) === -1) {
-      self.addTriple(base + 'dsd', qbNS + 'component', '_:dsd-' + header);
-      self.addTriple('_:dsd-' + header, qbNS + 'measure', base + header);
-      self.addTriple('_:dsd-' + header, qbNS + 'order', '"' + order + '"');
+      self.addTriple(base + 'dsd', QB_NS + 'component', '_:dsd-' + header);
+      self.addTriple('_:dsd-' + header, QB_NS + 'measure', base + header);
+      self.addTriple('_:dsd-' + header, QB_NS + 'order', '"' + order + '"');
 
-      self.addTriple(base + header, rdfNS + 'type', owlNS + 'DatatypeProperty');
-      self.addTriple(base + header, rdfNS + 'type', qbNS + 'MeasureProperty');
+      self.addTriple(base + header, RDF_NS + 'type',
+                     OWL_NS + 'DatatypeProperty');
+      self.addTriple(base + header, RDF_NS + 'type', QB_NS + 'MeasureProperty');
+      self.addTriple(base + header, RDFS_NS + 'label',
+                     '"' + _s.titleize(_s.humanize(header)) + '"');
+    }
+    if (header === 'tahun') {
+      self.addTriple(base + 'dsd', QB_NS + 'component', '_:dsd-' + header);
+      self.addTriple('_:dsd-' + header, QB_NS + 'dimension',
+                     BM_NS + 'refPeriod');
+      self.addTriple('_:dsd-' + header, QB_NS + 'order', '"' + order + '"');
     }
   });
+
+  callback();
 };
 
 DataGoIdDriver.prototype.initDataset = function(callback) {
   var self = this;
   
-  logger.info('Adding dataset definition...');
+  self.info('Adding dataset definition...');
 
   var base = self.options.base;
-  var triples = self.options.triples;
 
-  self.addTriple(base, rdfNS + 'type', qbNS + 'DataSet');
-  self.addTriple(base, rdfsNS + 'label',
-                 '"' + self.options.datasetMeta.title + '"');
-  self.addTriple(base, rdfsNS + 'comment',
-                 '"' + self.options.datasetMeta.notes + '"');
-  self.addTriple(base, qbNS + 'structure', self.options.dsd);
+  self.addTriple(base, RDF_NS + 'type', QB_NS + 'DataSet');
+  self.addTriple(base, RDFS_NS + 'label',
+                 '"' + self.datasetMeta.title + '"');
+  self.addTriple(base, RDFS_NS + 'comment',
+                 '"' + self.datasetMeta.notes + '"');
+  self.addTriple(base, QB_NS + 'structure', self.options.dsd);
 
   callback();
 };
@@ -176,7 +186,6 @@ DataGoIdDriver.prototype.addObservation = function(rowObject, idx) {
   var self = this;
 
   var base = self.options.base;
-  var triples = self.options.triples;
 
   var observationURI;
   if (self.options.generateObservationURI) {
@@ -186,14 +195,14 @@ DataGoIdDriver.prototype.addObservation = function(rowObject, idx) {
     observationURI = base + 'observation/' + idx;
   }
 
-  self.addTriple(observationURI, rdfNS + 'type', qbNS + 'Observation');
-  self.addTriple(observationURI, qbNS + 'dataSet', base);
-  self.addTriple(observationURI, ontNS + 'refArea',
-                 bpsNS + rowObject.kode_kabkota);
+  self.addTriple(observationURI, RDF_NS + 'type', QB_NS + 'Observation');
+  self.addTriple(observationURI, QB_NS + 'dataSet', base);
+  self.addTriple(observationURI, BM_NS + 'refArea',
+                 BPS_NS + rowObject.kode_kabkota);
 
   if (rowObject.tahun && self.options.ignoredFields.indexOf('tahun') !== -1) {
-    self.addTriple(observationURI, ontNS + 'refPeriod',
-                   '"' + rowObject.tahun + '"^^<' + xsdNS + 'gYear>');
+    self.addTriple(observationURI, BM_NS + 'refPeriod',
+                   '"' + rowObject.tahun + '"^^<' + XSD_NS + 'gYear>');
   }
 
   Object.keys(rowObject).forEach(function(key) {
@@ -213,9 +222,9 @@ DataGoIdDriver.prototype.addObservation = function(rowObject, idx) {
 DataGoIdDriver.prototype.addObservations = function(callback) {
   var self = this;
   
-  logger.info('Adding observations...');
+  self.info('Adding observations...');
 
-  self.options.rowObjects.forEach(function(rowObject, idx) {
+  self.rowObjects.forEach(function(rowObject, idx) {
     self.addObservation(rowObject, idx, self.options);
   });
 
@@ -235,6 +244,7 @@ DataGoIdDriver.prototype.fetch = function() {
     self.getCsvString.bind(self),
     self.getRowObjects.bind(self),
     self.initDataset.bind(self),
+    self.generateDSD.bind(self),
     self.addObservations.bind(self)
   ], function(err, params) {
     if (err) {
