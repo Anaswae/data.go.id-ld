@@ -52,6 +52,9 @@ DataGoIdDriver.prototype.setOptions = function(options) {
   if (!self.options.dsd) {
     self.options.dsd = self.options.base + '_dsd';
   }
+  if (_.isUndefined(self.options.generateDSD)) {
+    self.options.generateDSD = true;
+  }
 
   self.datasetUri = self.options.ckanURL + 'dataset/' +
                     self.options.datasetId;
@@ -199,7 +202,7 @@ DataGoIdDriver.prototype.fetchCsv = function(callback) {
 DataGoIdDriver.prototype.addDsd = function(firstRow) {
   var self = this;
 
-  if (!self.options.generateDSD) {
+  if (!self.options.generateDSD === false) {
     return;
   }
 
