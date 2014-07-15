@@ -187,7 +187,7 @@ DataGoIdDriver.prototype.fetchCsv = function(callback) {
   request(self.csvUrl)
     .pipe(csvParser())
     .once('data', function(firstRow) {
-      self.addDsd(Object.keys(firstRow));
+      self.addDsd(firstRow);
     })
     .on('data', function(row) {
       self.addObservation(row, ++i);
@@ -196,14 +196,25 @@ DataGoIdDriver.prototype.fetchCsv = function(callback) {
     .on('error', callback);
 };
 
-DataGoIdDriver.prototype.addDsd = function(headerArray) {
+DataGoIdDriver.prototype.addDsd = function(firstRow) {
   var self = this;
 
   if (!self.options.generateDSD) {
     return;
   }
-  
+
   self.info('Generating data structure definition...');
+
+  var ignoredFields = self.options.ignoredFields;
+  var headerArray = Object.keys(firstRow);
+
+  var dimensions = [];
+
+  _.forEach(firstRow, function(value, idx) {
+    if (!_.contains(ignoredFields, idx) && !isNumeric(value)) {
+      dimensions.push(idx);
+    }
+  });
 
   var base = self.options.base;
   var dsdUri = base + '_dsd';
@@ -220,14 +231,19 @@ DataGoIdDriver.prototype.addDsd = function(headerArray) {
   }
 
   headerArray.forEach(function(header) {
-    if (!_.contains(self.options.ignoredFields, header)) {
+    if (!_.contains(ignoredFields, header)) {
       self.addTriple(dsdUri, QB_NS + 'component', dsdUri + '-' + header);
       self.addTriple(dsdUri + '-' + header, QB_NS + 'measure', base + header);
       self.addTriple(dsdUri + '-' + header, QB_NS + 'order', '"' + order + '"');
 
+      var componentType = 'MeasureProperty';
+      if (_.contains(dimensions, header)) {
+        componentType = 'DimensionProperty';
+      }
+      self.addTriple(base + header, RDF_NS + 'type', QB_NS + componentType);
+
       self.addTriple(base + header, RDF_NS + 'type',
                      OWL_NS + 'DatatypeProperty');
-      self.addTriple(base + header, RDF_NS + 'type', QB_NS + 'MeasureProperty');
       self.addTriple(base + header, RDFS_NS + 'label',
                      '"' + _s.titleize(_s.humanize(header)) + '"');
 
