@@ -46,7 +46,7 @@ DataGoIdDriver.prototype.setOptions = function(options) {
                         self.options.datasetId + '#';
   }
   if (!self.options.dsd) {
-    self.options.dsd = self.options.base + 'dsd';
+    self.options.dsd = self.options.base + '_dsd';
   }
 
   self.info(self.options);
@@ -88,7 +88,7 @@ DataGoIdDriver.prototype.generateDSD = function(callback) {
   self.info('Generating data structure definition...');
 
   var base = self.options.base;
-  var dsdUri = base + 'dsd';
+  var dsdUri = base + '_dsd';
 
   self.addTriple(dsdUri, RDF_NS + 'type',
                  QB_NS + 'DataStructureDefinition');
@@ -147,7 +147,7 @@ DataGoIdDriver.prototype.addObservation = function(rowObject, idx) {
     observationURI = self.options.generateObservationURI(rowObject, idx);
   }
   else {
-    observationURI = base + 'observation/' + idx;
+    observationURI = base + '_' + idx;
   }
 
   self.addTriple(observationURI, RDF_NS + 'type', QB_NS + 'Observation');
