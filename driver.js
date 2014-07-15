@@ -146,10 +146,14 @@ DataGoIdDriver.prototype.generateDSD = function(callback) {
 
   self.addTriple(dsdUri, RDF_NS + 'type',
                  QB_NS + 'DataStructureDefinition');
-  self.addTriple(dsdUri + '-refArea', QB_NS + 'dimension', BM_NS + 'refArea');
-  self.addTriple(dsdUri + '-refArea', QB_NS + 'order', '"1"');
 
-  var order = 2;
+  var order = 0;
+
+  if (_.contains(self.headerArray, 'kode_provinsi')) {
+    self.addTriple(dsdUri + '-refArea', QB_NS + 'dimension', BM_NS + 'refArea');
+    self.addTriple(dsdUri + '-refArea', QB_NS + 'order', '"' + order + '"');
+    ++order;
+  }
 
   self.headerArray.forEach(function(header) {
     if (self.options.ignoredFields.indexOf(header) === -1) {
@@ -211,8 +215,15 @@ DataGoIdDriver.prototype.addObservation = function(rowObject, idx) {
 
   self.addTriple(observationURI, RDF_NS + 'type', QB_NS + 'Observation');
   self.addTriple(observationURI, QB_NS + 'dataSet', datasetUri);
-  self.addTriple(observationURI, BM_NS + 'refArea',
-                 BPS_NS + rowObject.kode_kabkota);
+
+  if (rowObject.kode_kabkota) {
+    self.addTriple(observationURI, BM_NS + 'refArea',
+                   BPS_NS + rowObject.kode_kabkota);
+  }
+  else if (rowObject.kode_provinsi) {
+    self.addTriple(observationURI, BM_NS + 'refArea',
+                   BPS_NS + rowObject.kode_provinsi);
+  }
 
   if (rowObject.tahun && self.options.ignoredFields.indexOf('tahun') !== -1) {
     self.addTriple(observationURI, BM_NS + 'refPeriod',
