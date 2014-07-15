@@ -146,16 +146,16 @@ DataGoIdDriver.prototype.generateDSD = function(callback) {
 
   self.addTriple(dsdUri, RDF_NS + 'type',
                  QB_NS + 'DataStructureDefinition');
-  self.addTriple('_:dsd-refArea', QB_NS + 'dimension', BM_NS + 'refArea');
-  self.addTriple('_:dsd-refArea', QB_NS + 'order', '"1"');
+  self.addTriple(dsdUri + '-refArea', QB_NS + 'dimension', BM_NS + 'refArea');
+  self.addTriple(dsdUri + '-refArea', QB_NS + 'order', '"1"');
 
   var order = 2;
 
   self.headerArray.forEach(function(header) {
     if (self.options.ignoredFields.indexOf(header) === -1) {
-      self.addTriple(dsdUri, QB_NS + 'component', '_:dsd-' + header);
-      self.addTriple('_:dsd-' + header, QB_NS + 'measure', base + header);
-      self.addTriple('_:dsd-' + header, QB_NS + 'order', '"' + order + '"');
+      self.addTriple(dsdUri, QB_NS + 'component', dsdUri + '-' + header);
+      self.addTriple(dsdUri + '-' + header, QB_NS + 'measure', base + header);
+      self.addTriple(dsdUri + '-' + header, QB_NS + 'order', '"' + order + '"');
 
       self.addTriple(base + header, RDF_NS + 'type',
                      OWL_NS + 'DatatypeProperty');
@@ -166,10 +166,10 @@ DataGoIdDriver.prototype.generateDSD = function(callback) {
       ++order;
     }
     if (header === 'tahun') {
-      self.addTriple(dsdUri, QB_NS + 'component', '_:dsd-' + header);
-      self.addTriple('_:dsd-' + header, QB_NS + 'dimension',
+      self.addTriple(dsdUri, QB_NS + 'component', dsdUri + '-' + header);
+      self.addTriple(dsdUri + '-' + header, QB_NS + 'dimension',
                      BM_NS + 'refPeriod');
-      self.addTriple('_:dsd-' + header, QB_NS + 'order', '"' + order + '"');
+      self.addTriple(dsdUri + '-' + header, QB_NS + 'order', '"' + order + '"');
 
       ++order;
     }
