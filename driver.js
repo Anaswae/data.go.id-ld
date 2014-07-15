@@ -120,11 +120,11 @@ DataGoIdDriver.prototype.addMeta = function(callback) {
   self.addTriple(datasetUri, QB_NS + 'structure', self.options.dsd);
 
   // Dates
-  self.addTriple(datasetUri, DCT_NS + 'modified', meta.metadata_modified);
+  self.addTriple(datasetUri, DCT_NS + 'modified', '"' + meta.metadata_modified + '"');
 
   // License
   self.addTriple(datasetUri, DCT_NS + 'license', meta.license_url);
-  self.addTriple(meta.license_url, RDFS_NS + 'label', meta.license_title);
+  self.addTriple(meta.license_url, RDFS_NS + 'label', '"' + meta.license_title + '"');
 
   // Publishing organization
   var orgBase = self.options.ckanURL + 'organization/';
@@ -168,7 +168,7 @@ DataGoIdDriver.prototype.addMeta = function(callback) {
   _.forEach(meta.extras, function(extra) {
     var extraUri = extraBase + _s.dasherize(extra.key.toLowerCase());
     self.addTriple(datasetUri, extraUri, '"' + extra.value + '"');
-    self.addTriple(extraUri, RDFS_NS + 'label', extra.key);
+    self.addTriple(extraUri, RDFS_NS + 'label', '"' + extra.key + '"');
 
     if (extra.key === 'Rujukan' && _s.startsWith(extra.value, 'http')) {
       self.addTriple(datasetUri, RDFS_NS + 'seeAlso', extra.value);
@@ -232,14 +232,19 @@ DataGoIdDriver.prototype.addDsd = function(firstRow) {
 
   headerArray.forEach(function(header) {
     if (!_.contains(ignoredFields, header)) {
-      self.addTriple(dsdUri, QB_NS + 'component', dsdUri + '-' + header);
-      self.addTriple(dsdUri + '-' + header, QB_NS + 'measure', base + header);
-      self.addTriple(dsdUri + '-' + header, QB_NS + 'order', '"' + order + '"');
-
       var componentType = 'MeasureProperty';
+      var componentAttribute = 'measure';
       if (_.contains(dimensions, header)) {
         componentType = 'DimensionProperty';
+        componentAttribute = 'dimension';
       }
+
+      self.addTriple(dsdUri, QB_NS + 'component', dsdUri + '-' + header);
+      self.addTriple(dsdUri + '-' + header, QB_NS + componentAttribute,
+                     base + header);
+      self.addTriple(dsdUri + '-' + header, QB_NS + 'order',
+                     '"' + order + '"');
+
       self.addTriple(base + header, RDF_NS + 'type', QB_NS + componentType);
 
       self.addTriple(base + header, RDF_NS + 'type',
