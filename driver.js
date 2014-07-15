@@ -115,6 +115,8 @@ DataGoIdDriver.prototype.generateDSD = function(callback) {
                      BM_NS + 'refPeriod');
       self.addTriple('_:dsd-' + header, QB_NS + 'order', '"' + order + '"');
     }
+
+    ++order;
   });
 
   callback();
