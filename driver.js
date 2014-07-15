@@ -76,7 +76,6 @@ DataGoIdDriver.prototype.fetchFromCkan = function(callback) {
         // The CSV we want should be at index 0
         var firstResource = resources[0];
 
-        self.raw = data.result;
         self.csvUrl = firstResource.url;
         self.datasetMeta = data.result;
         self.org = data.result.organization;
@@ -89,14 +88,27 @@ DataGoIdDriver.prototype.fetchFromCkan = function(callback) {
 DataGoIdDriver.prototype.generateMeta = function(callback) {
   var self = this;
 
-  self.info('Generating organization metadata...');
+  self.info('Generating dataset metadata...');
 
   var datasetUri = self.datasetUri;
+  var meta = self.datasetMeta;
+
+  self.addTriple(datasetUri, RDF_NS + 'type', QB_NS + 'DataSet');
+  self.addTriple(datasetUri, RDFS_NS + 'label', '"' + meta.title + '"');
+  self.addTriple(datasetUri, RDFS_NS + 'comment', '"' + meta.notes + '"');
+  self.addTriple(datasetUri, QB_NS + 'structure', self.options.dsd);
+
+  // Dates
+  self.addTriple(datasetUri, DCT_NS + 'modified', meta.metadata_modified);
+
+  // License
+  self.addTriple(datasetUri, DCT_NS + 'license', meta.license_url);
+  self.addTriple(meta.license_url, RDFS_NS + 'label', meta.license_title);
 
   // Publishing organization
   var orgBase = self.options.ckanURL + 'organization/';
 
-  var org = self.raw.organization;
+  var org = meta.organization;
   var orgUri = orgBase + org.name;
 
   self.addTriple(datasetUri, DCT_NS + 'publisher', orgUri);
@@ -107,7 +119,7 @@ DataGoIdDriver.prototype.generateMeta = function(callback) {
   // Groups
   var groupBase = self.options.ckanURL + 'group/';
 
-  _.forEach(self.raw.groups, function(group) {
+  _.forEach(meta.groups, function(group) {
     var groupUri = groupBase + group.name;
 
     self.addTriple(datasetUri, DCT_NS + 'subject', groupUri);
@@ -121,12 +133,25 @@ DataGoIdDriver.prototype.generateMeta = function(callback) {
   // Tags
   var tagBase = self.options.ckanURL + 'dataset?tags=';
 
-  _.forEach(self.raw.groups, function(tag) {
+  _.forEach(meta.groups, function(tag) {
     var tagUri = tagBase + encodeURIComponent(tag.name);
 
     self.addTriple(datasetUri, DCT_NS + 'subject', tagUri);
     self.addTriple(tagUri, RDF_NS + 'type', BM_NS + 'Tag');
     self.addTriple(tagUri, RDFS_NS + 'label', '"' + tag.display_name + '"');
+  });
+
+  // Extras
+  var extraBase = self.options.base + 'meta-';
+
+  _.forEach(meta.extras, function(extra) {
+    var extraUri = extraBase + encodeURIComponent(extra.key);
+    self.addTriple(datasetUri, extraUri, '"' + extra.value + '"');
+    self.addTriple(extraUri, RDFS_NS + 'label', extra.key);
+
+    if (extra.key === 'Rujukan' && extra.value.startsWith('http')) {
+      self.addTriple(datasetUri, RDFS_NS + 'seeAlso', extra.value);
+    }
   });
 
   callback();
@@ -178,23 +203,6 @@ DataGoIdDriver.prototype.generateDSD = function(callback) {
       ++order;
     }
   });
-
-  callback();
-};
-
-DataGoIdDriver.prototype.initDataset = function(callback) {
-  var self = this;
-  
-  self.info('Adding dataset definition...');
-
-  var datasetUri = self.datasetUri;
-
-  self.addTriple(datasetUri, RDF_NS + 'type', QB_NS + 'DataSet');
-  self.addTriple(datasetUri, RDFS_NS + 'label',
-                 '"' + self.datasetMeta.title + '"');
-  self.addTriple(datasetUri, RDFS_NS + 'comment',
-                 '"' + self.datasetMeta.notes + '"');
-  self.addTriple(datasetUri, QB_NS + 'structure', self.options.dsd);
 
   callback();
 };
@@ -275,10 +283,9 @@ DataGoIdDriver.prototype.fetch = function() {
 
   async.waterfall([
     self.fetchFromCkan.bind(self),
-    self.initDataset.bind(self),
+    self.generateMeta.bind(self),
     self.addObservations.bind(self),
-    self.generateDSD.bind(self),
-    self.generateMeta.bind(self)
+    self.generateDSD.bind(self)
   ], function(err, params) {
     if (err) {
       self.error(err);
