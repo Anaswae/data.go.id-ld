@@ -14,6 +14,7 @@
     "async": "^0.7.0",
     "benangmerah-driver-base": "benangmerah/driver-base",
     "lodash": "^2.4.1",
-    "csv-parser": "^1.4.1"
+    "csv-parser": "^1.4.1",
+    "isnumeric": "^0.1.1"
   }
 }

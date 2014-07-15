@@ -6,6 +6,7 @@ var request = require('request');
 var async = require('async');
 var _ = require('lodash');
 var csvParser = require('csv-parser');
+var isNumeric = require('isnumeric');
 
 var BmDriverBase = require('benangmerah-driver-base');
 
@@ -223,6 +224,9 @@ DataGoIdDriver.prototype.addObservation = function(rowObject, idx) {
       var value;
       if (self.options.transformValue) {
         value = self.options.transformValue(key, rowObject[key]);
+      }
+      else if (isNumeric(rowObject[key])) {
+        value = '"' + rowObject[key] + '"^^<' + XSD_NS + 'decimal>';
       }
       else {
         value = '"' + rowObject[key] + '"';
