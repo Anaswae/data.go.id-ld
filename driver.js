@@ -163,10 +163,10 @@ DataGoIdDriver.prototype.addMeta = function(callback) {
   });
 
   // Extras
-  var extraBase = self.options.ckanURL + 'meta-';
+  var extraBase = self.options.ckanURL + '#meta-';
 
   _.forEach(meta.extras, function(extra) {
-    var extraUri = extraBase + _s.dasherize(extra.key);
+    var extraUri = extraBase + _s.dasherize(extra.key.toLowerCase());
     self.addTriple(datasetUri, extraUri, '"' + extra.value + '"');
     self.addTriple(extraUri, RDFS_NS + 'label', extra.key);
 
