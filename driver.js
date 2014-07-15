@@ -100,7 +100,6 @@ DataGoIdDriver.prototype.fetchFromCkan = function(callback) {
 
         self.csvUrl = firstResource.url;
         self.datasetMeta = data.result;
-        self.org = data.result.organization;
 
         callback();
       }
