@@ -1,11 +1,11 @@
 var fs = require('fs');
-var csv = require('csv');
 var _s = require('underscore.string');
 var util = require('util');
 var ckan = require('ckan');
 var request = require('request');
 var async = require('async');
 var _ = require('lodash');
+var csvParser = require('csv-parser');
 
 var BmDriverBase = require('benangmerah-driver-base');
 
@@ -78,52 +78,6 @@ DataGoIdDriver.prototype.fetchFromCkan = function(callback) {
     });
 };
 
-DataGoIdDriver.prototype.getCsvString = function(callback) {
-  var self = this;
-
-  self.info('Fetching CSV contents...');
-
-  request(self.csvUrl, function(err, response, body) {
-    if (err) {
-      callback(err);
-    }
-    else {
-      self.csvString = body;
-      callback();
-    }
-  });
-};
-
-DataGoIdDriver.prototype.makeRowObject = function(rowArray, headerArray) {
-  var rowObject = {};
-  rowArray.forEach(function(value, idx) {
-    var key = headerArray[idx];
-    rowObject[key] = value;
-  });
-
-  return rowObject;
-};
-
-DataGoIdDriver.prototype.getRowObjects = function(callback) {
-  var self = this;
-  
-  self.info('Parsing CSV...');
-
-  csv()
-  .from.string(self.csvString)
-  .to.array(function(rows) {
-    self.headerArray = rows.shift();
-    self.rowObjects = [];
-
-    rows.forEach(function(row) {
-      var rowObject = self.makeRowObject(row, self.headerArray);
-      self.rowObjects.push(rowObject);
-    });
-
-    callback();
-  });
-};
-
 DataGoIdDriver.prototype.generateDSD = function(callback) {
   var self = this;
 
@@ -134,8 +88,9 @@ DataGoIdDriver.prototype.generateDSD = function(callback) {
   self.info('Generating data structure definition...');
 
   var base = self.options.base;
+  var dsdUri = base + 'dsd';
 
-  self.addTriple(base + 'dsd', RDF_NS + 'type',
+  self.addTriple(dsdUri, RDF_NS + 'type',
                  QB_NS + 'DataStructureDefinition');
   self.addTriple('_:dsd-refArea', QB_NS + 'dimension', BM_NS + 'refArea');
   self.addTriple('_:dsd-refArea', QB_NS + 'order', '"1"');
@@ -144,7 +99,7 @@ DataGoIdDriver.prototype.generateDSD = function(callback) {
 
   self.headerArray.forEach(function(header) {
     if (self.options.ignoredFields.indexOf(header) === -1) {
-      self.addTriple(base + 'dsd', QB_NS + 'component', '_:dsd-' + header);
+      self.addTriple(dsdUri, QB_NS + 'component', '_:dsd-' + header);
       self.addTriple('_:dsd-' + header, QB_NS + 'measure', base + header);
       self.addTriple('_:dsd-' + header, QB_NS + 'order', '"' + order + '"');
 
@@ -155,7 +110,7 @@ DataGoIdDriver.prototype.generateDSD = function(callback) {
                      '"' + _s.titleize(_s.humanize(header)) + '"');
     }
     if (header === 'tahun') {
-      self.addTriple(base + 'dsd', QB_NS + 'component', '_:dsd-' + header);
+      self.addTriple(dsdUri, QB_NS + 'component', '_:dsd-' + header);
       self.addTriple('_:dsd-' + header, QB_NS + 'dimension',
                      BM_NS + 'refPeriod');
       self.addTriple('_:dsd-' + header, QB_NS + 'order', '"' + order + '"');
@@ -222,13 +177,19 @@ DataGoIdDriver.prototype.addObservation = function(rowObject, idx) {
 DataGoIdDriver.prototype.addObservations = function(callback) {
   var self = this;
   
-  self.info('Adding observations...');
+  self.info('Fetching from CSV and adding observations...');
 
-  self.rowObjects.forEach(function(rowObject, idx) {
-    self.addObservation(rowObject, idx, self.options);
-  });
-
-  callback();
+  var i = 0;
+  request(self.csvUrl)
+    .pipe(csvParser())
+    .once('data', function(firstRow) {
+      self.headerArray = Object.keys(firstRow);
+    })
+    .on('data', function(row) {
+      self.addObservation(row, ++i);
+    })
+    .on('end', callback)
+    .on('error', callback);
 };
 
 DataGoIdDriver.prototype.fetch = function() {
@@ -241,11 +202,9 @@ DataGoIdDriver.prototype.fetch = function() {
 
   async.waterfall([
     self.fetchFromCkan.bind(self),
-    self.getCsvString.bind(self),
-    self.getRowObjects.bind(self),
     self.initDataset.bind(self),
-    self.generateDSD.bind(self),
-    self.addObservations.bind(self)
+    self.addObservations.bind(self),
+    self.generateDSD.bind(self)
   ], function(err, params) {
     if (err) {
       self.error(err);
