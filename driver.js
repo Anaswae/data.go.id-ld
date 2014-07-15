@@ -39,7 +39,7 @@ DataGoIdDriver.prototype.setOptions = function(options) {
     // TODO have a flag to disable ignoring these fields
     self.options.ignoredFields =
       [ 'kode_provinsi', 'nama_provinsi', 'kode_kabkota', 'koordinat_provinsi',
-        'koordinat_kabkota', 'nama_kabkota', 'tahun' ];
+        'koordinat_kabkota', 'nama_kabkota', 'tahun', 'latitude', 'longitude' ];
   }
 
   if (!self.options.ckanURL) {
@@ -67,7 +67,7 @@ DataGoIdDriver.prototype.fetch = function() {
     return;
   }
 
-  async.waterfall([
+  async.series([
     self.fetchFromCkan.bind(self),
     self.addMeta.bind(self),
     self.fetchCsv.bind(self)
