@@ -59,6 +59,28 @@ DataGoIdDriver.prototype.setOptions = function(options) {
   self.info(self.options);
 };
 
+DataGoIdDriver.prototype.fetch = function() {
+  var self = this;
+
+  if (!self.options.datasetId) {
+    self.error('No dataset was specified.');
+    return;
+  }
+
+  async.waterfall([
+    self.fetchFromCkan.bind(self),
+    self.addMeta.bind(self),
+    self.fetchCsv.bind(self)
+  ], function(err, params) {
+    if (err) {
+      self.error(err);
+    }
+    else {
+      self.finish();
+    }
+  });
+};
+
 DataGoIdDriver.prototype.fetchFromCkan = function(callback) {
   var self = this;
 
@@ -85,7 +107,7 @@ DataGoIdDriver.prototype.fetchFromCkan = function(callback) {
     });
 };
 
-DataGoIdDriver.prototype.generateMeta = function(callback) {
+DataGoIdDriver.prototype.addMeta = function(callback) {
   var self = this;
 
   self.info('Generating dataset metadata...');
@@ -155,6 +177,24 @@ DataGoIdDriver.prototype.generateMeta = function(callback) {
   });
 
   callback();
+};
+
+DataGoIdDriver.prototype.fetchCsv = function(callback) {
+  var self = this;
+  
+  self.info('Fetching from CSV and adding observations...');
+
+  var i = 0;
+  request(self.csvUrl)
+    .pipe(csvParser())
+    .once('data', function(firstRow) {
+      self.addDsd(Object.keys(firstRow));
+    })
+    .on('data', function(row) {
+      self.addObservation(row, ++i);
+    })
+    .on('end', callback)
+    .on('error', callback);
 };
 
 DataGoIdDriver.prototype.addDsd = function(headerArray) {
@@ -249,46 +289,6 @@ DataGoIdDriver.prototype.addObservation = function(rowObject, idx) {
         value = '"' + rowObject[key] + '"';
       }
       self.addTriple(observationURI, base + key, value);
-    }
-  });
-};
-
-DataGoIdDriver.prototype.fetchCsv = function(callback) {
-  var self = this;
-  
-  self.info('Fetching from CSV and adding observations...');
-
-  var i = 0;
-  request(self.csvUrl)
-    .pipe(csvParser())
-    .once('data', function(firstRow) {
-      self.addDsd(Object.keys(firstRow));
-    })
-    .on('data', function(row) {
-      self.addObservation(row, ++i);
-    })
-    .on('end', callback)
-    .on('error', callback);
-};
-
-DataGoIdDriver.prototype.fetch = function() {
-  var self = this;
-
-  if (!self.options.datasetId) {
-    self.error('No dataset was specified.');
-    return;
-  }
-
-  async.waterfall([
-    self.fetchFromCkan.bind(self),
-    self.generateMeta.bind(self),
-    self.fetchCsv.bind(self)
-  ], function(err, params) {
-    if (err) {
-      self.error(err);
-    }
-    else {
-      self.finish();
     }
   });
 };
