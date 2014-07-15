@@ -215,4 +215,4 @@ DataGoIdDriver.prototype.fetch = function() {
   });
 };
 
-BmDriverBase.handleCLI({});
+BmDriverBase.handleCLI();
