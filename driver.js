@@ -149,7 +149,7 @@ DataGoIdDriver.prototype.generateMeta = function(callback) {
     self.addTriple(datasetUri, extraUri, '"' + extra.value + '"');
     self.addTriple(extraUri, RDFS_NS + 'label', extra.key);
 
-    if (extra.key === 'Rujukan' && extra.value.startsWith('http')) {
+    if (extra.key === 'Rujukan' && _s.startsWith(extra.value, 'http')) {
       self.addTriple(datasetUri, RDFS_NS + 'seeAlso', extra.value);
     }
   });
@@ -157,11 +157,11 @@ DataGoIdDriver.prototype.generateMeta = function(callback) {
   callback();
 };
 
-DataGoIdDriver.prototype.generateDSD = function(callback) {
+DataGoIdDriver.prototype.addDsd = function(headerArray) {
   var self = this;
 
   if (!self.options.generateDSD) {
-    return callback();
+    return;
   }
   
   self.info('Generating data structure definition...');
@@ -174,14 +174,14 @@ DataGoIdDriver.prototype.generateDSD = function(callback) {
 
   var order = 0;
 
-  if (_.contains(self.headerArray, 'kode_provinsi')) {
+  if (_.contains(headerArray, 'kode_provinsi')) {
     self.addTriple(dsdUri + '-refArea', QB_NS + 'dimension', BM_NS + 'refArea');
     self.addTriple(dsdUri + '-refArea', QB_NS + 'order', '"' + order + '"');
     ++order;
   }
 
-  self.headerArray.forEach(function(header) {
-    if (self.options.ignoredFields.indexOf(header) === -1) {
+  headerArray.forEach(function(header) {
+    if (!_.contains(self.options.ignoredFields, header)) {
       self.addTriple(dsdUri, QB_NS + 'component', dsdUri + '-' + header);
       self.addTriple(dsdUri + '-' + header, QB_NS + 'measure', base + header);
       self.addTriple(dsdUri + '-' + header, QB_NS + 'order', '"' + order + '"');
@@ -203,8 +203,6 @@ DataGoIdDriver.prototype.generateDSD = function(callback) {
       ++order;
     }
   });
-
-  callback();
 };
 
 DataGoIdDriver.prototype.addObservation = function(rowObject, idx) {
@@ -255,7 +253,7 @@ DataGoIdDriver.prototype.addObservation = function(rowObject, idx) {
   });
 };
 
-DataGoIdDriver.prototype.addObservations = function(callback) {
+DataGoIdDriver.prototype.fetchCsv = function(callback) {
   var self = this;
   
   self.info('Fetching from CSV and adding observations...');
@@ -264,7 +262,7 @@ DataGoIdDriver.prototype.addObservations = function(callback) {
   request(self.csvUrl)
     .pipe(csvParser())
     .once('data', function(firstRow) {
-      self.headerArray = Object.keys(firstRow);
+      self.addDsd(Object.keys(firstRow));
     })
     .on('data', function(row) {
       self.addObservation(row, ++i);
@@ -284,8 +282,7 @@ DataGoIdDriver.prototype.fetch = function() {
   async.waterfall([
     self.fetchFromCkan.bind(self),
     self.generateMeta.bind(self),
-    self.addObservations.bind(self),
-    self.generateDSD.bind(self)
+    self.fetchCsv.bind(self)
   ], function(err, params) {
     if (err) {
       self.error(err);
