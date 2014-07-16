@@ -202,7 +202,7 @@ DataGoIdDriver.prototype.fetchCsv = function(callback) {
 DataGoIdDriver.prototype.addDsd = function(firstRow) {
   var self = this;
 
-  if (!self.options.generateDSD === false) {
+  if (self.options.generateDSD === false) {
     return;
   }
 
