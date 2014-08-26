@@ -275,7 +275,7 @@ DataGoIdDriver.prototype.addDsd = function(firstRow) {
     var humanTitle = _s.humanize(header).split(' ');
     humanTitle = _.map(humanTitle, function(word) {
       var isAbbreviation =
-        !!word.match(/^([bcdfghjklmnpqrstvwxyz]+|[a-z]){1,3}$/i);
+        !!word.match(/^([bcdfghjklmnpqrstvwxyz]+|[a-z]{1,3})$/i);
       return isAbbreviation ? word.toUpperCase() : _s.titleize(word);
     });
     humanTitle = humanTitle.join(' ');
