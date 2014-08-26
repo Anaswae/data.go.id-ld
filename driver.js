@@ -39,7 +39,8 @@ DataGoIdDriver.prototype.setOptions = function(options) {
     // TODO have a flag to disable ignoring these fields
     self.options.ignoredFields =
       [ 'kode_provinsi', 'nama_provinsi', 'kode_kabkota', 'koordinat_provinsi',
-        'koordinat_kabkota', 'nama_kabkota', 'tahun', 'latitude', 'longitude' ];
+        'koordinat_kabkota', 'nama_kabkota', 'tahun', 'bulan',
+        '', 'orderer', 'latitude', 'longitude' ];
   }
 
   if (!self.options.ckanURL) {
@@ -123,11 +124,13 @@ DataGoIdDriver.prototype.addMeta = function(callback) {
   self.addTriple(datasetUri, QB_NS + 'structure', self.options.dsd);
 
   // Dates
-  self.addTriple(datasetUri, DCT_NS + 'modified', '"' + meta.metadata_modified + '"');
+  self.addTriple(datasetUri, DCT_NS + 'modified',
+    '"' + meta.metadata_modified + '"');
 
   // License
   self.addTriple(datasetUri, DCT_NS + 'license', meta.license_url);
-  self.addTriple(meta.license_url, RDFS_NS + 'label', '"' + meta.license_title + '"');
+  self.addTriple(meta.license_url, RDFS_NS + 'label', 
+    '"' + meta.license_title + '"');
 
   // Publishing organization
   var orgBase = self.options.ckanURL + 'organization/';
@@ -227,44 +230,58 @@ DataGoIdDriver.prototype.addDsd = function(firstRow) {
 
   var order = 0;
 
-  if (_.contains(headerArray, 'kode_provinsi')) {
-    self.addTriple(dsdUri + '-refArea', QB_NS + 'dimension', BM_NS + 'refArea');
-    self.addTriple(dsdUri + '-refArea', QB_NS + 'order', '"' + order + '"');
+  if (_.contains(headerArray, 'kode_provinsi') ||
+      _.contains(headerArray, 'kode_kabkota')) {
+    self.addTriple(
+      dsdUri + '-refArea', QB_NS + 'dimension', BM_NS + 'refArea');
+    self.addTriple(
+      dsdUri + '-refArea', QB_NS + 'order', '"' + order + '"');
+    ++order;
+  }
+  if (_.contains(headerArray, 'tahun')) {
+      self.addTriple(
+        dsdUri, QB_NS + 'component', dsdUri + '-refPeriod');
+      self.addTriple(
+        dsdUri + '-refPeriod', QB_NS + 'dimension', BM_NS + 'refPeriod');
+      self.addTriple(
+        dsdUri + '-refPeriod', QB_NS + 'order', '"' + order + '"');
     ++order;
   }
 
-  headerArray.forEach(function(header) {
-    if (!_.contains(ignoredFields, header)) {
-      var componentType = 'MeasureProperty';
-      var componentAttribute = 'measure';
-      if (_.contains(dimensions, header)) {
-        componentType = 'DimensionProperty';
-        componentAttribute = 'dimension';
-      }
-
-      self.addTriple(dsdUri, QB_NS + 'component', dsdUri + '-' + header);
-      self.addTriple(dsdUri + '-' + header, QB_NS + componentAttribute,
-                     base + header);
-      self.addTriple(dsdUri + '-' + header, QB_NS + 'order',
-                     '"' + order + '"');
-
-      self.addTriple(base + header, RDF_NS + 'type', QB_NS + componentType);
-
-      self.addTriple(base + header, RDF_NS + 'type',
-                     OWL_NS + 'DatatypeProperty');
-      self.addTriple(base + header, RDFS_NS + 'label',
-                     '"' + _s.titleize(_s.humanize(header)) + '"');
-
-      ++order;
+  _.forEach(headerArray, function(header) {
+    if (_.contains(ignoredFields, header)) {
+      return;
     }
-    if (header === 'tahun') {
-      self.addTriple(dsdUri, QB_NS + 'component', dsdUri + '-' + header);
-      self.addTriple(dsdUri + '-' + header, QB_NS + 'dimension',
-                     BM_NS + 'refPeriod');
-      self.addTriple(dsdUri + '-' + header, QB_NS + 'order', '"' + order + '"');
-
-      ++order;
+    var componentType = 'MeasureProperty';
+    var componentAttribute = 'measure';
+    if (_.contains(dimensions, header)) {
+      componentType = 'DimensionProperty';
+      componentAttribute = 'dimension';
     }
+
+    self.addTriple(dsdUri, QB_NS + 'component', dsdUri + '-' + header);
+    self.addTriple(dsdUri + '-' + header, QB_NS + componentAttribute,
+                   base + header);
+    self.addTriple(dsdUri + '-' + header, QB_NS + 'order',
+                   '"' + order + '"');
+
+    self.addTriple(base + header, RDF_NS + 'type', QB_NS + componentType);
+
+    // This won't resolve since qb:MeasureProperty
+    // isn't related to owl:DatatypeProperty
+    // self.addTriple(base + header, RDF_NS + 'type',
+    //                OWL_NS + 'DatatypeProperty');
+
+    var humanTitle = _s.humanize(header).split(' ');
+    humanTitle = _.map(humanTitle, function(word) {
+      var isAbbreviation =
+        !!word.match(/^([bcdfghjklmnpqrstvwxyz]+|[a-z]){1,3}$/i);
+      return isAbbreviation ? word.toUpperCase() : _s.titleize(word);
+    });
+    humanTitle = humanTitle.join(' ');
+    self.addTriple(base + header, RDFS_NS + 'label', '"' + humanTitle + '"');
+
+    ++order;
   });
 };
 
@@ -294,7 +311,12 @@ DataGoIdDriver.prototype.addObservation = function(rowObject, idx) {
                    BPS_NS + rowObject.kode_provinsi);
   }
 
-  if (rowObject.tahun && self.options.ignoredFields.indexOf('tahun') !== -1) {
+  if (rowObject.tahun && rowObject.bulan) {
+    var period = rowObject.tahun + '-' + _s.pad(rowObject.bulan, 2, '0');
+    self.addTriple(observationURI, BM_NS + 'refPeriod',
+                   '"' + period + '"^^<' + XSD_NS + 'gYearMonth>');
+  }
+  else if (rowObject.tahun) {
     self.addTriple(observationURI, BM_NS + 'refPeriod',
                    '"' + rowObject.tahun + '"^^<' + XSD_NS + 'gYear>');
   }
