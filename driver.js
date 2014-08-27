@@ -25,6 +25,8 @@ var SKOS_NS = 'http://www.w3.org/2004/02/skos/core#';
 
 var yearRegex = /^[0-9]{4}$/;
 var yearMonthRegex = /^[0-9]{4}-[0-9]{2}$/;
+var abbreviationRegex =
+  /^([aeiou]?[bcdfghjklmnpqrstvwxyz\-]{2,}|[a-z\-]{1,3})$/i;
 
 function DataGoIdDriver() {}
 
@@ -277,8 +279,7 @@ DataGoIdDriver.prototype.addDsd = function(firstRow) {
 
     var humanTitle = _s.humanize(header).split(' ');
     humanTitle = _.map(humanTitle, function(word) {
-      var isAbbreviation =
-        !!word.match(/^([bcdfghjklmnpqrstvwxyz]+|[a-z]{1,3})$/i);
+      var isAbbreviation = abbreviationRegex.test(word);
       return isAbbreviation ? word.toUpperCase() : _s.titleize(word);
     });
     humanTitle = humanTitle.join(' ');
