@@ -23,6 +23,9 @@ var ORG_NS = 'http://www.w3.org/ns/org#';
 var DCT_NS = 'http://purl.org/dc/terms/';
 var SKOS_NS = 'http://www.w3.org/2004/02/skos/core#';
 
+var yearRegex = /^[0-9]{4}$/;
+var yearMonthRegex = /^[0-9]{4}-[0-9]{2}$/;
+
 function DataGoIdDriver() {}
 
 util.inherits(DataGoIdDriver, BmDriverBase);
@@ -317,8 +320,14 @@ DataGoIdDriver.prototype.addObservation = function(rowObject, idx) {
                    '"' + period + '"^^<' + XSD_NS + 'gYearMonth>');
   }
   else if (rowObject.tahun) {
-    self.addTriple(observationURI, BM_NS + 'refPeriod',
-                   '"' + rowObject.tahun + '"^^<' + XSD_NS + 'gYear>');
+    if (yearRegex.test(rowObject.tahun)) {
+      self.addTriple(observationURI, BM_NS + 'refPeriod',
+                     '"' + rowObject.tahun + '"^^<' + XSD_NS + 'gYear>');
+    }
+    else {
+      self.addTriple(observationURI, BM_NS + 'refPeriod',
+                     '"' + rowObject.tahun + '"');
+    }
   }
 
   Object.keys(rowObject).forEach(function(key) {
@@ -328,7 +337,8 @@ DataGoIdDriver.prototype.addObservation = function(rowObject, idx) {
         value = self.options.transformValue(key, rowObject[key]);
       }
       else if (isNumeric(rowObject[key])) {
-        value = '"' + rowObject[key] + '"^^<' + XSD_NS + 'decimal>';
+        var numericValue = parseFloat(rowObject[key]).toString();
+        value = '"' + numericValue + '"^^<' + XSD_NS + 'decimal>';
       }
       else {
         value = '"' + rowObject[key] + '"';
